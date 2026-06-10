@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /painel
+Disallow: /checkout
+Disallow: /carrinho
+Disallow: /conta
+Disallow: /pedidos
+Disallow: /solicitacoes
+Disallow: /login
+
+Sitemap: https://minhalojinhatech.store/sitemap.xml

@@ -1,0 +1,214 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner() {
+      return signedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == "minhalojinhatech@gmail.com";
+    }
+
+    function ownsUserDoc(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function ownsResource() {
+      return signedIn()
+        && (
+          resource.data.userId == request.auth.uid
+          || resource.data.customerId == request.auth.uid
+          || resource.data.ownerId == request.auth.uid
+        );
+    }
+
+    function ownsIncomingResource() {
+      return signedIn()
+        && (
+          request.resource.data.userId == request.auth.uid
+          || request.resource.data.customerId == request.auth.uid
+          || request.resource.data.ownerId == request.auth.uid
+        );
+    }
+
+    function isPublicSupportRequest() {
+      return request.resource.data.keys().hasOnly(["customerId", "customerName", "customerEmail", "customerPhone", "orderId", "orderCode", "productId", "type", "reason", "description", "contactPreference", "availability", "status", "createdAt"])
+        && (request.resource.data.type == "Contato" || request.resource.data.type == "Assistência técnica" || request.resource.data.type == "Quero vender meu celular")
+        && request.resource.data.status == "Aguardando confirmação"
+        && request.resource.data.customerName is string
+        && request.resource.data.reason is string
+        && request.resource.data.description is string
+        && request.resource.data.customerName.size() > 1
+        && request.resource.data.customerName.size() <= 120
+        && request.resource.data.reason.size() > 1
+        && request.resource.data.reason.size() <= 160
+        && request.resource.data.description.size() > 4
+        && request.resource.data.description.size() <= 2000;
+    }
+
+    function isPublicCollaborationSubmission() {
+      return request.resource.data.keys().hasOnly(["kind", "name", "organization", "email", "phone", "city", "category", "experience", "message", "status", "read", "archived", "createdAt"])
+        && (request.resource.data.kind == "Parceria" || request.resource.data.kind == "Candidatura")
+        && request.resource.data.status == "Novo"
+        && request.resource.data.read == false
+        && request.resource.data.archived == false
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 1
+        && request.resource.data.name.size() <= 120
+        && request.resource.data.organization is string
+        && request.resource.data.organization.size() <= 140
+        && request.resource.data.email is string
+        && request.resource.data.email.size() > 4
+        && request.resource.data.email.size() <= 160
+        && request.resource.data.phone is string
+        && request.resource.data.phone.size() >= 10
+        && request.resource.data.phone.size() <= 20
+        && request.resource.data.city is string
+        && request.resource.data.city.size() <= 100
+        && request.resource.data.category is string
+        && request.resource.data.category.size() > 2
+        && request.resource.data.category.size() <= 100
+        && request.resource.data.experience is string
+        && request.resource.data.experience.size() <= 1200
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 4
+        && request.resource.data.message.size() <= 2000;
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow create, delete: if isOwner();
+      allow update: if isOwner()
+        || (
+          signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["available", "status", "reservedOrderId", "updatedAt"])
+          && resource.data.available == true
+          && request.resource.data.available == false
+          && request.resource.data.status == "Reservado"
+        );
+    }
+
+    match /demandModels/{modelId} {
+      allow read: if true;
+      allow create, update, delete: if isOwner();
+    }
+
+    match /demandInterests/{interestId} {
+      allow read: if isOwner();
+      allow write: if false;
+    }
+
+    match /demandSuggestions/{suggestionId} {
+      allow read: if isOwner();
+      allow write: if false;
+    }
+
+    match /collaborationSubmissions/{submissionId} {
+      allow create: if isPublicCollaborationSubmission() || isOwner();
+      allow read, update, delete: if isOwner();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create, update, delete: if isOwner();
+    }
+
+    match /deliveryZones/{zoneId} {
+      allow read: if true;
+      allow create, update, delete: if isOwner();
+    }
+
+    match /storeSettings/{settingId} {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /users/{userId} {
+      allow create: if ownsUserDoc(userId) || isOwner();
+      allow read, update: if ownsUserDoc(userId) || isOwner();
+      allow delete: if ownsUserDoc(userId) || isOwner();
+    }
+
+    match /orders/{orderId} {
+      allow create: if ownsIncomingResource() || isOwner();
+      allow read: if ownsResource() || isOwner();
+      allow update, delete: if isOwner();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if resource.data.status == "Publicado" || isOwner();
+      allow create: if request.resource.data.status == "Pendente"
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.customerName is string
+        && request.resource.data.itemName is string
+        && request.resource.data.comment is string;
+      allow update, delete: if isOwner();
+    }
+
+    match /coupons/{couponId} {
+      allow read: if true;
+      allow create, delete: if isOwner();
+      allow update: if isOwner()
+        || (
+          signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["usedCount", "updatedAt"])
+          && request.resource.data.usedCount == resource.data.usedCount + 1
+        );
+    }
+
+    match /couponUsages/{usageId} {
+      allow read: if (signedIn() && resource.data.customerId == request.auth.uid) || isOwner();
+      allow create: if signedIn()
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.count >= 1;
+      allow update: if signedIn()
+        && resource.data.customerId == request.auth.uid
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["count", "updatedAt"])
+        && request.resource.data.count == resource.data.count + 1;
+      allow delete: if isOwner();
+    }
+
+    match /serviceRequests/{requestId} {
+      allow create: if ownsIncomingResource() || isPublicSupportRequest() || isOwner();
+      allow read: if ownsResource() || isOwner();
+      allow update: if isOwner() || (ownsResource() && request.resource.data.status == resource.data.status);
+      allow delete: if isOwner();
+    }
+
+    match /repairs/{repairId} {
+      allow read: if isOwner() || (signedIn() && resource.data.customerId == request.auth.uid);
+      allow create, update, delete: if isOwner();
+    }
+
+    match /repairWarrantyCodes/{codeId} {
+      allow read, write: if isOwner();
+    }
+
+    match /repairWarranties/{warrantyId} {
+      allow read: if isOwner() || (signedIn() && resource.data.customerId == request.auth.uid);
+      allow write: if isOwner();
+    }
+
+    match /agreements/{agreementId} {
+      allow read: if isOwner() || (signedIn() && resource.data.customerId == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /refundRequests/{requestId} {
+      allow create: if ownsIncomingResource() || isOwner();
+      allow read: if ownsResource() || isOwner();
+      allow update, delete: if isOwner();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,20 @@
+[package]
+name = "minha-lojinha-tech"
+version = "0.1.0"
+description = "Aplicativo desktop da Minha Lojinha Tech"
+authors = ["Minha Lojinha Tech"]
+edition = "2021"
+
+[lib]
+name = "minha_lojinha_tech_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-http = "2"
+tauri-plugin-opener = "2"
