@@ -10,7 +10,8 @@
     "desktop:dev": "tauri dev",
     "desktop:export": "TAURI_BUILD=1 NEXT_PUBLIC_DESKTOP_BUILD=1 next build",
     "desktop:build": "tauri build",
-    "desktop:icon": "tauri icon \"public/Logo App Minha Lojinha.png\""
+    "desktop:icon": "tauri icon \"public/Logo App Minha Lojinha.png\"",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
